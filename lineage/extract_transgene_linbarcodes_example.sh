@@ -10,11 +10,11 @@ R1_FASTQ="./bAllos4_allos_dsRedRC_S24_R1_001.fastq"
 R2_FASTQ="./bAllos4_allos_dsRedRC_S24_R2_001.fastq"
 
 # Reference FASTA and name
-REFERENCE_FA="dsRedExpOpt_RecCas_with_CapSeq_polyA_barcoded.fa"
-REFERENCE_NAME="dsRedExpOpt_RecCas_with_CapSeq_polyA_barcoded"
+REFERENCE_FA="dsRedExpOpt_linRecorder.fa"
+REFERENCE_NAME="dsRedExpOpt_linRecorder"
 
 # Output prefix
-OUTPUT_PREFIX="allos_reccas_scar_test"
+OUTPUT_PREFIX="allos_linrecorder"
 
 # Barcode threshold
 BC_READ_THRESHOLD=500
