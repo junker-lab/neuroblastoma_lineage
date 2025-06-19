@@ -1,7 +1,7 @@
 # Description ####
 # Functions for grouping cells with clone-ID information into actual clones
 
-# Written by Nora Fresmann 2023
+# Written by Nora Fresmann 2022-2024
 
 suppressPackageStartupMessages(library(dichromat))
 suppressPackageStartupMessages(library(ggplot2))
