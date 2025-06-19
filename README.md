@@ -8,7 +8,7 @@
 	- Lineage barcode extraction from fastq-files and filtering
 	- Processing of lineage barcodes from endogenous targets
 	- Processing of lineage barcodes from transgenic targets
-	- ...
+	- Clone calling
 - openST spatial transcriptomics analysis:
 	- ...
 
