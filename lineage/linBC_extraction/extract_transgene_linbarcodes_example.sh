@@ -28,7 +28,7 @@ SEQ_LEN=140
 PRIMSEQ="CCACCACCTGTTCCTG"
 
 # LINNAEUS script directory
-SCRIPT_DIR="LINNAEUS_resources/"
+SCRIPT_DIR="../LINNAEUS_resources/scar_extraction/"
 
 # === STEP 1: Count reads per barcode ===
 BC_FREQS="${OUTPUT_PREFIX}_bc_freqs.txt"
