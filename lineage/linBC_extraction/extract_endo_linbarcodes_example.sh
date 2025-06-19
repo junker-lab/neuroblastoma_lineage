@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# The code here was adapted from code written by Bastiaan Spanjaard.
+
 source /local/guix/profiles/rstudio/env_vars
 
 # ENTER SAMPLE-SPECIFIC INFORMATION IN THE FOLLOWING TWO SECTIONS!

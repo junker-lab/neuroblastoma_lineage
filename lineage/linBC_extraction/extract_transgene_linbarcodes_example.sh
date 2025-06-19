@@ -1,4 +1,5 @@
 #!/bin/bash
+# This code is adapted from Bastiaan Spanjaard's code in https://github.com/Bastiaanspanjaard/LINNAEUS.
 
 # === Activate environment ===
 source activate env2
@@ -27,7 +28,7 @@ SEQ_LEN=140
 PRIMSEQ="CCACCACCTGTTCCTG"
 
 # LINNAEUS script directory
-SCRIPT_DIR="/local/users/nfresma/repos/LINNAEUS/scar_extraction"
+SCRIPT_DIR="LINNAEUS_resources/"
 
 # === STEP 1: Count reads per barcode ===
 BC_FREQS="${OUTPUT_PREFIX}_bc_freqs.txt"
