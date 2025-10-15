@@ -16,7 +16,7 @@ require(ape)
 #require(poisbinom)
 require(plyr)
 require(data.tree)
-require(treemap)
+#require(treemap)
 require(collapsibleTree)
 require(data.table)
 

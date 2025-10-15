@@ -1,4 +1,46 @@
-# Functions for calling clones using sequencing data for individual endogenous CRISPR-Cas9 lineage tracing targets:
+# DESCRIPTION
+# Functions for grouping cells according to lineage barcode similarity using sequencing data for individual endogenous CRISPR-Cas9 lineage tracing targets:
+# Consists of the following functions, carried out for one target gene at a time:
+# 1. function 'getclones':
+#    Lineage barcode reads from the extraction pipeline are shortened to 30 bp sequence IDs.
+#    Cells that have two distinct lineage barcode sequence IDs (i.e. two distinct alleles) are selected.
+#    sequence IDs that only appear once are removed. sequence IDs that appear together across many cells are grouped into sequence ID-combinations.
+#    sequence ID pairs with sequence IDs that are ambiguous due to co-occurrence with multiple other sequence IDs are removed.
+#    Group cells carrying a valid sequence ID pair into 'clones' according to their sequence ID pair.
+#    Add cells that only have one sequence ID, if this sequence ID was defined as a clone-defining sequence ID in the previous analysis steps.
+#    The output of this function represents the most confident grouping of cells according to one target and is most suited to be used
+#    as input for clone calling across all target genes.
+#
+# 2. function 'addwtclones':
+#    Some cells may not have been edited by Cas9 at all and carry two uncut alleles of the target gene.
+#    These 'wildtype' cells are not useful for clone calling. But it is useful to identify cells that likely did not incur
+#    any edits, to check whether a lack of recovered clones is due to low editing efficiency (i.e. many cells with uncut alleles).
+#    Data for all cells is loaded again and lineage barcode reads are shortened into 30 bp sequence IDs.
+#    Keep only cell-barcode-sequence IDs combinations that are in the top 70 % of UMI-counts across all cell-barcode-sequence IDs combinations.
+#    This ensures that only cells with multiple uncut sequence ID UMIs are assigned as true wildtype cells.
+#    Merge the output with the output of 'getclones' to get a full list of cells assigned to a sequence ID-based clone or wildtype.
+#
+# 3. function 'addonescarclones':
+#    Similar to 'wildtype' alleles, cells may have the same edit on both alleles of a gene or one allele may co-occur with another,
+#    which isn't detectable. These scenarios are more unlikely, but we can still check if there are any cells that follow this pattern.
+#    Data for all cells is loaded again and lineage barcode reads are shortened into 30 bp sequence IDs.
+#    Keep only cells with a single sequence ID that is not part of a sequence ID pair used to define clones in 'getclones'.
+#    Only keep sequence IDs that appear in at least three cells.
+#    Make sure these sequence IDs don't co-occur with other sequence IDs in other cells.
+#    Group cells based on these individual sequence IDs and merge them into the results produced by 'getclones'.
+#    
+# 4. function 'getclones_uncert':
+#    In 'getclones' sequence ID pairs with sequence IDs that are ambiguous due to co-occurrence with multiple other sequence IDs are removed.
+#    Here, a more lenient cut-off is applied allowing sequence IDs to appear in more distinct sequence ID pairs.
+#    The output is added to the output of getclones.
+#
+# 5. function 'getvalidseqids':
+#    Extract all cells with two distinct sequence IDs and assign them their sequence ID pair.
+#    This performs in the same way as initial sequence ID selection and grouping into pairs performed by 'getclones'
+#    sequence ID pairs are not filtered further, but written out into a new output table.
+#    The sequence ID-pairs can then be cross-referenced with an anchor dataset, e.g. with clones called on another set of cells derived
+#    from the same biological sample.
+
 
 
 # Written by Nora Fresmann 2022-2024
@@ -16,7 +58,7 @@ suppressPackageStartupMessages(library(DescTools))
 suppressPackageStartupMessages(library(pheatmap))
 
 
-
+# Wild-type seq-IDs for each target gene 
 wt_seq_ids <- c("rpl39" = "TGGGCTTGTAAACCACTGTTTACTTCAGCA", 
                 "actb1" = "CTTTTAGTCATTCCAGAAGCGTTTACCACT", 
                 "cfl1" = "CGTATGAAGTTTAGATGGGGAGAGCGATAT",
@@ -26,7 +68,7 @@ wt_seq_ids <- c("rpl39" = "TGGGCTTGTAAACCACTGTTTACTTCAGCA",
                 "rps8a" = "TTAAAGAAAACACCCCAACTCATGTCATTG"
                 )
 
-
+# Delimiters for shortening lineage barcode reads into 30 bp seq-IDs for each target gene
 seq_id_delim <- list("actb1" = c(36,65), 
                      "actb2" = c(40,69),
                      "rpl39" = c(38,67), 
@@ -36,268 +78,14 @@ seq_id_delim <- list("actb1" = c(36,65),
 
 
 
-# 1. Extract all endogenous target allele combinations
-
-getvalidseqids <- function(dat_wd, dat_name, wt_seq_ids, seq_id_delim, scar_file_name, heatmap_after_initial_filt = F, seur_dat, tums_list, genes_list){
-
-# Loop through samples    
-    for(z in 1:length(tums_list)){
-
-        tum_it <- tums_list[z]
-
-# Loop through genes
-        for(y in 1:length(genes_list)){
-    
-            gene_it <- genes_list[y]        
-
-# STEP 1: Data preparation           
-            # Read in filtered scar data
-
-            scar.input_full <- read.csv(paste0(dat_wd,"/",scar_file_name,"_",gene_it,".csv"), stringsAsFactors = F)
-
-            scar.input_full <- merge(scar.input_full, seur_dat[,c('Barcode','sample_inf')], by = "Barcode")
-            scar_freqs <- as.data.frame(table(scar.input_full$Sequence))
-            scar.input_full$Presence <- 0
-            scar.input_full$Presence[scar.input_full$Sequence %in% scar_freqs[scar_freqs$Freq > 1,]$Var1] <- 1
-            
-            print(paste0('entries in scar input object for gene ',gene_it,": ",nrow(scar.input_full)))
-            
-            scar.input_full$UMIs <- as.numeric(scar.input_full$UMIs)
-            
-            # Subset for cells from a single sample of interest, if per-sample analysis is desired
-            if(tum_it == 'all'){
-                scar.input <- scar.input_full
-            }else{
-                scar.input <- scar.input_full[scar.input_full$sample_inf == tum_it,]   
-            }
-
-            if(nrow(scar.input) == 0){
-                next
-            }
-
-
-
-            # Get seq_ids, which are short stretches of sequence around the expected scar site. These will be used as identifiers for each sequence.
-            # The length and positioning are defined by the input variable seq_id_delim and need to correspond to the supplied wildtype IDs in wt_seq_ids.
-            scar.input$seq_id <- substr(scar.input$Sequence, seq_id_delim[[gene_it]][1],seq_id_delim[[gene_it]][2])
-            
-            # Get wildtype seq_id from wt_seq_ids.
-            wt_seq_id <- wt_seq_ids[gene_it]                   
-
-            # Include hard-clipped reads by giving them a different seq_id, unless they have only one UMI.
-            # Then remove entries that still have an empty seq_id slot
-            scar.input$seq_id[scar.input$seq_id == "" & scar.input$UMIs > 1] <- substr(scar.input$Sequence[scar.input$seq_id == "" & scar.input$UMIs > 1], 1,30)
-            scar.input <- scar.input[scar.input$seq_id != "",]
-            
-
-            # Remove cell barcode seq_id duplicates
-            scar.input <- scar.input[order(scar.input$UMIs, decreasing = T),]
-            scar.input$BC_seq_id <- paste0(scar.input$Barcode, "_", scar.input$seq_id)
-            scar.input <- scar.input[!duplicated(scar.input$BC_seq_id),]
-            scar.input$BC_seq_id  <- NULL
-
-
-# STEP 2: Selection of cells with two distinct alleles
-            # First select cell barcodes that have been assigned two scars (wildtype sequences are allowed!)
-            BCs_2scars <- scar.input$Barcode[duplicated(scar.input$Barcode) == T]
-            scar.input.2scars <- scar.input[scar.input$Barcode %in% BCs_2scars,]
-            
-            # Remove sequences that only appear in one cell. Since some cells that previously had two different alleles, might now only have one, remove cells that have been left with only a single scar.
-            # Iterate through these two steps until there are no more scars that can only be found in a single cell. If this does not resolve within 20 rounds of iteration, send a notification and continue to next gene.
-
-            Scar_clone_overview <- table(scar.input.2scars$Barcode, scar.input.2scars$seq_id)
-
-            seqs_one_cell <- as.data.frame(t(as.matrix(colSums(Scar_clone_overview))))
-            seqs_one_cell <- colnames(seqs_one_cell[,seqs_one_cell[1,] == 1])
-
-            for(i in 1:20){
-                scar.input.2scars <- scar.input.2scars[!scar.input.2scars$seq_id %in% seqs_one_cell,]
-
-                BCs_2scars <- scar.input.2scars$Barcode[duplicated(scar.input.2scars$Barcode) == T]
-                scar.input.2scars <- scar.input[scar.input$Barcode %in% BCs_2scars,]
-                nrow(scar.input.2scars) == 2*length(BCs_2scars)
-
-                Scar_clone_overview <- table(scar.input.2scars$Barcode, scar.input.2scars$seq_id)
-                seqs_one_cell <- colSums(Scar_clone_overview)
-                seqs_one_cell <- names(which(seqs_one_cell == 1))
-
-                if(identical(seqs_one_cell,character(0))  == T) {
-                  break
-                }
-            }
-            # MOVE TO NEXT gene, IF this converges to 20
-            if(i == 20){
-                print(paste0('Isolation of cells with two alleles that are also found in other cells did not converge. Skipping clone calling for gene ',gene_it,'.'))
-                next
-            }
-
-            # Hierarchically cluster cells and make a heatmap, if desired.
-            if(heatmap_after_initial_filt == T & length(unique(scar.input.2scars$seq_id)) > 2 & length(unique(scar.input.2scars$Barcode)) > 2){
-                # Make a heatmap
-                Scar_clone_overview <- as.data.frame.matrix(table(scar.input.2scars$Barcode, scar.input.2scars$seq_id))
-                scar_freqs <- sort(colSums(Scar_clone_overview), decreasing = T)
-
-                ploto <-  pheatmap(Scar_clone_overview,
-                  show_rownames = FALSE, show_colnames = FALSE,
-                  breaks = seq(-1, +1, length = 101),
-                  cluster_cols = F
-                )
-
-                ggsave(plot = ploto, filename = paste0(dat_wd,"/pics/scarsintwocells_heatmap_",dat_name,"_tum_",tum_it,"_",gene_it,".png"), width = 7, height = 7, dpi = 300)
-                rm(ploto)
-            }
-
-
-# STEP 3: Definition of scar pairs
-
-            # Split the data into two dataframes. One contains the first allele of a cell and the second one contains the second allele of the cell.
-            # We do this by sorting for seq_id first and then for the barcode to make sure that all cells with the same seq_id combination will have the two seq_ids appear in the same order in the dataframe.
-            scar.input.2scars <- scar.input.2scars[order(scar.input.2scars$seq_id),]
-            scar.input.2scars <- scar.input.2scars[order(scar.input.2scars$Barcode),]
-            cell_scar_pairs <- scar.input.2scars[!duplicated(scar.input.2scars$Barcode),c("Barcode","seq_id","Sequence","CIGAR","UMIs","UMI_fraction")]
-            colnames(cell_scar_pairs) <- c("Barcode","seq_id_1","Sequence_1","CIGAR_1","UMIs_1","UMI_fraction_1")
-
-            cell_scar_pairs_2 <- scar.input.2scars[duplicated(scar.input.2scars$Barcode),c("Barcode","seq_id","Sequence","CIGAR","UMIs","UMI_fraction")]
-            colnames(cell_scar_pairs_2) <- c("Barcode","seq_id_2","Sequence_2","CIGAR_2","UMIs_2","UMI_fraction_2")
-            
-            # Merge these two dataframes, so that each cell has a row with the two seq_ids in the columns seq_id_1 and seq_id_2
-            cell_scar_pairs <- merge(cell_scar_pairs, cell_scar_pairs_2, by = "Barcode")
-            cell_scar_pairs$UMI_sum <- cell_scar_pairs$UMIs_1 + cell_scar_pairs$UMIs_2
-
-            # Remove combinations of seq_ids that only occur once or twice. If no seq_id combination is found more than once, send a note and move to next gene.
-            cell_scar_pairs$comb_seq_id <- paste0(cell_scar_pairs$seq_id_1, cell_scar_pairs$seq_id_2) # Combine both seq_ids in a joint column
-            comb_seq_ids <- as.data.frame(table(cell_scar_pairs$comb_seq_id))
-            comb_seq_ids_over2 <- comb_seq_ids[comb_seq_ids$Freq > 2,]$Var1
-            cell_scar_pairs_filt <- cell_scar_pairs[cell_scar_pairs$comb_seq_id %in% comb_seq_ids_over2,]
-
-            if(nrow(cell_scar_pairs_filt) == 0){
-                print(paste0("Sample ",tum_it,", gene ",gene_it,": There were no combinations that occur in more than 2 cells. Moving to the next gene"))
-                next
-            }
-
-            # Now we have all observed sequence-ID-combinations that seem valid at first glance. Instead of filtering the sed-IDs that co-occur consistently and exclusively, we now write out all of them. The sequence-ID-combinations can then be cross-referenced with an anchor dataset, e.g. with data from primary tumours, when working with allografts here.
-            
-            
-            # Subset the filtered original scar data for the cells that passed the last filter
-            scar.input.2scars.filt.filt <- scar.input.2scars[scar.input.2scars$Barcode %in% cell_scar_pairs_filt$Barcode,]
-
-
-# STEP 4: Merge relevant data and write to file.
-
-            # Add information on the comined seq_ids defining clones to the scar data
-            clone_seqs <- as.data.frame(unique(cell_scar_pairs_filt$comb_seq_id))
-            colnames(clone_seqs)[1] <- "clone_seq"
-
-            clone_seqs$cloneID <- c(1:length(unique(clone_seqs$clone_seq)))
-            clone_seqs$cloneID <- paste0(gene_it,"_",clone_seqs$cloneID)
-
-            print(paste0('Isolated ',length(unique(clone_seqs$cloneID)), ' clone IDs for gene ',gene_it,'.'))
-
-            
-            cell_scar_pairs_filt <- merge(cell_scar_pairs_filt, clone_seqs, by.x = "comb_seq_id", by.y = "clone_seq", all.x = T)
-            
-            # Write extensive output to file
-            write.table(cell_scar_pairs_filt, paste0(dat_wd,"/cells_with_combSeqIDInfo_",dat_name,"_tum_",tum_it,"_",gene_it,".txt"), quote = F)
-
-            # Add metadata information and reduce individual scar-cell information to most relevant.
-            cell_scar_pairs_filt_filt_sub <- cell_scar_pairs_filt[c("comb_seq_id","Barcode","seq_id_1","seq_id_2", "cloneID")]
-
-            all_info <- merge(scar.input.2scars.filt.filt, cell_scar_pairs_filt_filt_sub, by = "Barcode", all.x = T)
-            
-            # Write analysis output to file
-            write.table(all_info, paste0(dat_wd,"/cells_with_combSeqIDInfo_allinfo_per_cell_scar_",dat_name,"_tum_",tum_it,"_",gene_it,".txt"), quote = F, sep = ",")
-            
-            
-            # Add WILDTYPE CELLS
-
-# Reload original data into variable scar.input. Subset for cells from a single sample of interest, if per-sample analysis is desired
-            if(tum_it == 'all'){
-                scar.input <- scar.input_full
-            }else{
-                scar.input <- scar.input_full[scar.input_full$sample_inf == tum_it,]   
-            }
-
-            if(nrow(scar.input) == 0){
-                next
-            }
-
-
-            # Get seq_ids, which are short stretches of sequence around the expected scar site. These will be used as identifiers for each sequence.
-            # The length and positioning are defined by the input variable seq_id_delim and need to correspond to the supplied wildtype IDs in wt_seq_ids.
-            scar.input$seq_id <- substr(scar.input$Sequence, seq_id_delim[[gene_it]][1],seq_id_delim[[gene_it]][2])
-            
-            # Get wildtype seq_id from wt_seq_ids.
-            wt_seq_id <- wt_seq_ids[gene_it]                   
-
-            # Include hard-clipped reads by giving them a different seq_id, unless they have only one UMI.
-            # Then remove entries that still have an empty seq_id slot
-            scar.input$seq_id[scar.input$seq_id == "" & scar.input$UMIs > 1] <- substr(scar.input$Sequence[scar.input$seq_id == "" & scar.input$UMIs > 1], 1,30)
-            scar.input <- scar.input[scar.input$seq_id != "",]
-            
-
-            # Remove cell barcode seq_id duplicates
-            scar.input <- scar.input[order(scar.input$UMIs, decreasing = T),]
-            scar.input$BC_seq_id <- paste0(scar.input$Barcode, "_", scar.input$seq_id)
-            scar.input <- scar.input[!duplicated(scar.input$BC_seq_id),]
-            scar.input$BC_seq_id  <- NULL
-
-            # Get cells that are most likely WT only
-            BCs_1scar <- as.data.frame(table(scar.input$Barcode))$Var1[as.data.frame(table(scar.input$Barcode))$Freq == 1]
-            scar.input.1scar <- scar.input[scar.input$Barcode %in% BCs_1scar,]
-            scar.input.1scar <- scar.input.1scar[!scar.input.1scar$Barcode %in% cell_scar_pairs_filt$Barcode,]
-            scar.input.1scar <- scar.input.1scar[scar.input.1scar$seq_id == wt_seq_id,]
-
-
-            if (nrow(scar.input.1scar) == 0) next
-
-            scar.input.1scar <- scar.input.1scar[scar.input.1scar$UMIs > quantile(scar.input.1scar$UMIs, 0.3),]
-
-            if (nrow(scar.input.1scar) == 0) next
-
-            if (nrow(scar.input.1scar) != 0) {
-                # Fill in additional columns
-                scar.input.1scar$comb_seq_id <- paste0(wt_seq_id,wt_seq_id)
-                scar.input.1scar$seq_id_1 <- scar.input.1scar$seq_id
-                scar.input.1scar$seq_id_2 <- scar.input.1scar$seq_id
-                scar.input.1scar$cloneID <- paste0(gene_it, "_WT")
-
-                if (TRUE %in% names(table(scar.input.1scar$Barcode %in% all_info$Barcode))) {
-                    print("WRONG table merger 1")
-                } else if (FALSE %in% table(colnames(scar.input.1scar) == colnames(all_info))) {
-                    print("WRONG table merger 2")
-                }
-
-                if (ncol(all_info) == ncol(scar.input.1scar)) {
-                    scar_dat_ext <- rbind(all_info, scar.input.1scar)
-                } else {
-                    print('Previous warning about ncol inequality can be ignored. Since there were no scar based clones, only the newly found WT cells will contribute to the output.')
-                    scar_dat_ext <- scar.input.1scar
-                }
-
-                print("add WT seqs")
-
-                write.table(scar_dat_ext, paste0(dat_wd,"/cells_with_combSeqIDInfo_allinfo_per_cell_scar_",dat_name,"_tum_",tum_it,"_",gene_it,"_withWT.txt"), quote = F, sep = ",")
-
-            }
-            
-            rm(all_info)
-            rm(scar_dat_ext)
-            
-
-        }
-
-    }
-}
-
-
-
-
-
-
-## GPT refactored ALL
-# Main function to call clones on a per-target basis
+# Main function to call clones on a per-endogenous-target basis
 getclones <- function(dat_wd, dat_name, wt_seq_ids, seq_id_delim, scar_file_name, heatmap_after_initial_filt = F, heatmap_after_final_filt = F, cooc_fraction_cutoff, seur_dat, tums_list, genes_list) {  
-  
+    
+    # create plot output directory if missing
+    if (!dir.exists(paste0(getwd(),"/pics"))) {
+        dir.create(paste0(getwd(),"/pics"), recursive = TRUE)
+    }
+
   for (tum_it in tums_list) {
     for (gene_it in genes_list) {
       
@@ -412,7 +200,7 @@ addwtclones <- function(dat_wd, dat_name, wt_seq_ids, seq_id_delim, cooc_fractio
             scar.input$seq_id <- substr(scar.input$Sequence, seq_id_delim[[gene_it]][1], seq_id_delim[[gene_it]][2])
             wt_seq_id <- wt_seq_ids[gene_it]
 
-            # Get cells that are most likely WT only
+            # Get cells that are most likely WT only by selecting those with a high number of UMIs for WT but no other seq-IDs
             BCs_1scar <- as.data.frame(table(scar.input$Barcode))$Var1[as.data.frame(table(scar.input$Barcode))$Freq == 1]
             scar.input.1scar <- scar.input[scar.input$Barcode %in% BCs_1scar,]
             scar.input.1scar <- scar.input.1scar[!scar.input.1scar$Barcode %in% scars_1$Barcode,]
@@ -442,7 +230,7 @@ addwtclones <- function(dat_wd, dat_name, wt_seq_ids, seq_id_delim, cooc_fractio
                 if (ncol(scars_1) == ncol(scar.input.1scar)) {
                     scar_dat_ext <- rbind(scars_1, scar.input.1scar)
                 } else {
-                    print('Previous warning about ncol inequality can be ignored. Since there were no scar based clones, only the newly found WT cells will contribute to the output.')
+                    print('Previous warning about ncol inequality can be ignored. Since there were no true lineage barcode based clones, only the newly found WT cells will contribute to the output.')
                     scar_dat_ext <- scar.input.1scar
                 }
 
@@ -538,7 +326,7 @@ addonescarclones <- function(dat_wd, dat_name, wt_seq_ids, seq_id_delim, cooc_fr
 
           
         if (empty_ticker == 'yes') {
-          print('Previous warning about ncol inequality can be ignored. Since there were no scar based clones, only the newly found WT cells will contribute to the output.')
+          print('Previous warning about ncol inequality can be ignored. Since there were no lineage barcode based clones, only the newly found single allele cells will contribute to the output.')
           print('No two-allele based clones were previously found, but there are some single-allele clones')
           scar_dat_ext <- scar.input.1scar        
         } else if (ncol(scars_1) == ncol(scar.input.1scar)) {
@@ -706,6 +494,260 @@ getclones_uncert <- function(dat_wd, dat_name, wt_seq_ids, seq_id_delim, heatmap
   }
 }
 
+
+
+# Extract all endogenous target allele combinations
+
+getvalidseqids <- function(dat_wd, dat_name, wt_seq_ids, seq_id_delim, scar_file_name, heatmap_after_initial_filt = F, seur_dat, tums_list, genes_list){
+
+# Loop through samples    
+    for(z in 1:length(tums_list)){
+
+        tum_it <- tums_list[z]
+
+# Loop through genes
+        for(y in 1:length(genes_list)){
+    
+            gene_it <- genes_list[y]        
+
+# STEP 1: Data preparation           
+            # Read in filtered scar data
+
+            scar.input_full <- read.csv(paste0(dat_wd,"/",scar_file_name,"_",gene_it,".csv"), stringsAsFactors = F)
+
+            scar.input_full <- merge(scar.input_full, seur_dat[,c('Barcode','sample_inf')], by = "Barcode")
+            scar_freqs <- as.data.frame(table(scar.input_full$Sequence))
+            scar.input_full$Presence <- 0
+            scar.input_full$Presence[scar.input_full$Sequence %in% scar_freqs[scar_freqs$Freq > 1,]$Var1] <- 1
+            
+            print(paste0('entries in scar input object for gene ',gene_it,": ",nrow(scar.input_full)))
+            
+            scar.input_full$UMIs <- as.numeric(scar.input_full$UMIs)
+            
+            # Subset for cells from a single sample of interest, if per-sample analysis is desired
+            if(tum_it == 'all'){
+                scar.input <- scar.input_full
+            }else{
+                scar.input <- scar.input_full[scar.input_full$sample_inf == tum_it,]   
+            }
+
+            if(nrow(scar.input) == 0){
+                next
+            }
+
+
+
+            # Get seq_ids, which are short stretches of sequence around the expected scar site. These will be used as identifiers for each sequence.
+            # The length and positioning are defined by the input variable seq_id_delim and need to correspond to the supplied wildtype IDs in wt_seq_ids.
+            scar.input$seq_id <- substr(scar.input$Sequence, seq_id_delim[[gene_it]][1],seq_id_delim[[gene_it]][2])
+            
+            # Get wildtype seq_id from wt_seq_ids.
+            wt_seq_id <- wt_seq_ids[gene_it]                   
+
+            # Include hard-clipped reads by giving them a different seq_id, unless they have only one UMI.
+            # Then remove entries that still have an empty seq_id slot
+            scar.input$seq_id[scar.input$seq_id == "" & scar.input$UMIs > 1] <- substr(scar.input$Sequence[scar.input$seq_id == "" & scar.input$UMIs > 1], 1,30)
+            scar.input <- scar.input[scar.input$seq_id != "",]
+            
+
+            # Remove cell barcode seq_id duplicates
+            scar.input <- scar.input[order(scar.input$UMIs, decreasing = T),]
+            scar.input$BC_seq_id <- paste0(scar.input$Barcode, "_", scar.input$seq_id)
+            scar.input <- scar.input[!duplicated(scar.input$BC_seq_id),]
+            scar.input$BC_seq_id  <- NULL
+
+
+# STEP 2: Selection of cells with two distinct alleles
+            # First select cell barcodes that have been assigned two scars (wildtype sequences are allowed!)
+            BCs_2scars <- scar.input$Barcode[duplicated(scar.input$Barcode) == T]
+            scar.input.2scars <- scar.input[scar.input$Barcode %in% BCs_2scars,]
+            
+            # Remove sequences that only appear in one cell. Since some cells that previously had two different alleles, might now only have one, remove cells that have been left with only a single scar.
+            # Iterate through these two steps until there are no more scars that can only be found in a single cell. If this does not resolve within 20 rounds of iteration, send a notification and continue to next gene.
+
+            Scar_clone_overview <- table(scar.input.2scars$Barcode, scar.input.2scars$seq_id)
+
+            seqs_one_cell <- as.data.frame(t(as.matrix(colSums(Scar_clone_overview))))
+            seqs_one_cell <- colnames(seqs_one_cell[,seqs_one_cell[1,] == 1])
+
+            for(i in 1:20){
+                scar.input.2scars <- scar.input.2scars[!scar.input.2scars$seq_id %in% seqs_one_cell,]
+
+                BCs_2scars <- scar.input.2scars$Barcode[duplicated(scar.input.2scars$Barcode) == T]
+                scar.input.2scars <- scar.input[scar.input$Barcode %in% BCs_2scars,]
+                nrow(scar.input.2scars) == 2*length(BCs_2scars)
+
+                Scar_clone_overview <- table(scar.input.2scars$Barcode, scar.input.2scars$seq_id)
+                seqs_one_cell <- colSums(Scar_clone_overview)
+                seqs_one_cell <- names(which(seqs_one_cell == 1))
+
+                if(identical(seqs_one_cell,character(0))  == T) {
+                  break
+                }
+            }
+            # MOVE TO NEXT gene, IF this converges to 20
+            if(i == 20){
+                print(paste0('Isolation of cells with two alleles that are also found in other cells did not converge. Skipping clone calling for gene ',gene_it,'.'))
+                next
+            }
+
+            # Hierarchically cluster cells and make a heatmap, if desired.
+            if(heatmap_after_initial_filt == T & length(unique(scar.input.2scars$seq_id)) > 2 & length(unique(scar.input.2scars$Barcode)) > 2){
+                # Make a heatmap
+                Scar_clone_overview <- as.data.frame.matrix(table(scar.input.2scars$Barcode, scar.input.2scars$seq_id))
+                scar_freqs <- sort(colSums(Scar_clone_overview), decreasing = T)
+
+                ploto <-  pheatmap(Scar_clone_overview,
+                  show_rownames = FALSE, show_colnames = FALSE,
+                  breaks = seq(-1, +1, length = 101),
+                  cluster_cols = F
+                )
+
+                ggsave(plot = ploto, filename = paste0(dat_wd,"/pics/scarsintwocells_heatmap_",dat_name,"_tum_",tum_it,"_",gene_it,".png"), width = 7, height = 7, dpi = 300)
+                rm(ploto)
+            }
+
+
+# STEP 3: Definition of scar pairs
+
+            # Split the data into two dataframes. One contains the first allele of a cell and the second one contains the second allele of the cell.
+            # We do this by sorting for seq_id first and then for the barcode to make sure that all cells with the same seq_id combination will have the two seq_ids appear in the same order in the dataframe.
+            scar.input.2scars <- scar.input.2scars[order(scar.input.2scars$seq_id),]
+            scar.input.2scars <- scar.input.2scars[order(scar.input.2scars$Barcode),]
+            cell_scar_pairs <- scar.input.2scars[!duplicated(scar.input.2scars$Barcode),c("Barcode","seq_id","Sequence","CIGAR","UMIs","UMI_fraction")]
+            colnames(cell_scar_pairs) <- c("Barcode","seq_id_1","Sequence_1","CIGAR_1","UMIs_1","UMI_fraction_1")
+
+            cell_scar_pairs_2 <- scar.input.2scars[duplicated(scar.input.2scars$Barcode),c("Barcode","seq_id","Sequence","CIGAR","UMIs","UMI_fraction")]
+            colnames(cell_scar_pairs_2) <- c("Barcode","seq_id_2","Sequence_2","CIGAR_2","UMIs_2","UMI_fraction_2")
+            
+            # Merge these two dataframes, so that each cell has a row with the two seq_ids in the columns seq_id_1 and seq_id_2
+            cell_scar_pairs <- merge(cell_scar_pairs, cell_scar_pairs_2, by = "Barcode")
+            cell_scar_pairs$UMI_sum <- cell_scar_pairs$UMIs_1 + cell_scar_pairs$UMIs_2
+
+            # Remove combinations of seq_ids that only occur once or twice. If no seq_id combination is found more than once, send a note and move to next gene.
+            cell_scar_pairs$comb_seq_id <- paste0(cell_scar_pairs$seq_id_1, cell_scar_pairs$seq_id_2) # Combine both seq_ids in a joint column
+            comb_seq_ids <- as.data.frame(table(cell_scar_pairs$comb_seq_id))
+            comb_seq_ids_over2 <- comb_seq_ids[comb_seq_ids$Freq > 2,]$Var1
+            cell_scar_pairs_filt <- cell_scar_pairs[cell_scar_pairs$comb_seq_id %in% comb_seq_ids_over2,]
+
+            if(nrow(cell_scar_pairs_filt) == 0){
+                print(paste0("Sample ",tum_it,", gene ",gene_it,": There were no combinations that occur in more than 2 cells. Moving to the next gene"))
+                next
+            }
+
+            # Now we have all observed sequence-ID-combinations that seem valid at first glance. Instead of filtering the sed-IDs that co-occur consistently and exclusively, we now write out all of them. 
+            
+            
+            # Subset the filtered original scar data for the cells that passed the last filter
+            scar.input.2scars.filt.filt <- scar.input.2scars[scar.input.2scars$Barcode %in% cell_scar_pairs_filt$Barcode,]
+
+
+# STEP 4: Merge relevant data and write to file.
+
+            # Add information on the comined seq_ids defining clones to the scar data
+            clone_seqs <- as.data.frame(unique(cell_scar_pairs_filt$comb_seq_id))
+            colnames(clone_seqs)[1] <- "clone_seq"
+
+            clone_seqs$cloneID <- c(1:length(unique(clone_seqs$clone_seq)))
+            clone_seqs$cloneID <- paste0(gene_it,"_",clone_seqs$cloneID)
+
+            print(paste0('Isolated ',length(unique(clone_seqs$cloneID)), ' clone IDs for gene ',gene_it,'.'))
+
+            
+            cell_scar_pairs_filt <- merge(cell_scar_pairs_filt, clone_seqs, by.x = "comb_seq_id", by.y = "clone_seq", all.x = T)
+            
+            # Write extensive output to file
+            write.table(cell_scar_pairs_filt, paste0(dat_wd,"/cells_with_combSeqIDInfo_",dat_name,"_tum_",tum_it,"_",gene_it,".txt"), quote = F)
+
+            # Add metadata information and reduce individual scar-cell information to most relevant.
+            cell_scar_pairs_filt_filt_sub <- cell_scar_pairs_filt[c("comb_seq_id","Barcode","seq_id_1","seq_id_2", "cloneID")]
+
+            all_info <- merge(scar.input.2scars.filt.filt, cell_scar_pairs_filt_filt_sub, by = "Barcode", all.x = T)
+            
+            # Write analysis output to file
+            write.table(all_info, paste0(dat_wd,"/cells_with_combSeqIDInfo_allinfo_per_cell_scar_",dat_name,"_tum_",tum_it,"_",gene_it,".txt"), quote = F, sep = ",")
+            
+            
+            # Add WILDTYPE CELLS
+
+# Reload original data into variable scar.input. Subset for cells from a single sample of interest, if per-sample analysis is desired
+            if(tum_it == 'all'){
+                scar.input <- scar.input_full
+            }else{
+                scar.input <- scar.input_full[scar.input_full$sample_inf == tum_it,]   
+            }
+
+            if(nrow(scar.input) == 0){
+                next
+            }
+
+
+            # Get seq_ids, which are short stretches of sequence around the expected scar site. These will be used as identifiers for each sequence.
+            # The length and positioning are defined by the input variable seq_id_delim and need to correspond to the supplied wildtype IDs in wt_seq_ids.
+            scar.input$seq_id <- substr(scar.input$Sequence, seq_id_delim[[gene_it]][1],seq_id_delim[[gene_it]][2])
+            
+            # Get wildtype seq_id from wt_seq_ids.
+            wt_seq_id <- wt_seq_ids[gene_it]                   
+
+            # Include hard-clipped reads by giving them a different seq_id, unless they have only one UMI.
+            # Then remove entries that still have an empty seq_id slot
+            scar.input$seq_id[scar.input$seq_id == "" & scar.input$UMIs > 1] <- substr(scar.input$Sequence[scar.input$seq_id == "" & scar.input$UMIs > 1], 1,30)
+            scar.input <- scar.input[scar.input$seq_id != "",]
+            
+
+            # Remove cell barcode seq_id duplicates
+            scar.input <- scar.input[order(scar.input$UMIs, decreasing = T),]
+            scar.input$BC_seq_id <- paste0(scar.input$Barcode, "_", scar.input$seq_id)
+            scar.input <- scar.input[!duplicated(scar.input$BC_seq_id),]
+            scar.input$BC_seq_id  <- NULL
+
+            # Get cells that are most likely WT only
+            BCs_1scar <- as.data.frame(table(scar.input$Barcode))$Var1[as.data.frame(table(scar.input$Barcode))$Freq == 1]
+            scar.input.1scar <- scar.input[scar.input$Barcode %in% BCs_1scar,]
+            scar.input.1scar <- scar.input.1scar[!scar.input.1scar$Barcode %in% cell_scar_pairs_filt$Barcode,]
+            scar.input.1scar <- scar.input.1scar[scar.input.1scar$seq_id == wt_seq_id,]
+
+
+            if (nrow(scar.input.1scar) == 0) next
+
+            scar.input.1scar <- scar.input.1scar[scar.input.1scar$UMIs > quantile(scar.input.1scar$UMIs, 0.3),]
+
+            if (nrow(scar.input.1scar) == 0) next
+
+            if (nrow(scar.input.1scar) != 0) {
+                # Fill in additional columns
+                scar.input.1scar$comb_seq_id <- paste0(wt_seq_id,wt_seq_id)
+                scar.input.1scar$seq_id_1 <- scar.input.1scar$seq_id
+                scar.input.1scar$seq_id_2 <- scar.input.1scar$seq_id
+                scar.input.1scar$cloneID <- paste0(gene_it, "_WT")
+
+                if (TRUE %in% names(table(scar.input.1scar$Barcode %in% all_info$Barcode))) {
+                    print("WRONG table merger 1")
+                } else if (FALSE %in% table(colnames(scar.input.1scar) == colnames(all_info))) {
+                    print("WRONG table merger 2")
+                }
+
+                if (ncol(all_info) == ncol(scar.input.1scar)) {
+                    scar_dat_ext <- rbind(all_info, scar.input.1scar)
+                } else {
+                    print('Previous warning about ncol inequality can be ignored. Since there were no scar based clones, only the newly found WT cells will contribute to the output.')
+                    scar_dat_ext <- scar.input.1scar
+                }
+
+                print("add WT seqs")
+
+                write.table(scar_dat_ext, paste0(dat_wd,"/cells_with_combSeqIDInfo_allinfo_per_cell_scar_",dat_name,"_tum_",tum_it,"_",gene_it,"_withWT.txt"), quote = F, sep = ",")
+
+            }
+            
+            rm(all_info)
+            rm(scar_dat_ext)
+            
+
+        }
+
+    }
+}
 
 
 

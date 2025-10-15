@@ -1,5 +1,42 @@
-# Description ####
-# Functions for grouping cells with clone-ID information into actual clones
+# DESCRIPTION
+# Functions for grouping cells into clones using lineage barcode information from multiple target genes.
+# Takes as input the cells grouped according to sequence ID-pairs on individual endogenous target genes.
+# And cells that passed filtering for transgenic targets.
+# All alleles (sequence ID-pairs or transgenic barcodes) are hereafter called seq-IDs.
+# Function clone_def:
+#    For each sample in tums_list, cluster seq-ID values by shared barcodes, merge/prune clusters by overlap rules,
+#    to form clone-defining seq-ID clusters, assign each cell barcode to exactly one clone,
+#    derive clone-defining seq-ID clusters.
+#  Key inputs:   
+#    Paths/names: dat_wd, dat_name, cell_clone_object_file_name.
+#    Modes: tum_def_only (only relevant if calling clones on samples from multiple individuals at once,
+#           keep scars ≥90% specific to one sample), create_intermediate_plots.
+#    Thresholds (defaults values in brackets): merger_frac (default 0.9), overlap_threshold (0.8),
+#               secondary_overlap_threshold (0.6), ambiguous_cutoff (0.3).
+#    Tweak “resolution” of clustering: allow_large_parent_IDs/child_to_parent_fraction_cutoff
+#    Create plots, mainly heatmaps of intermediate steps of cell and seq-ID grouping: create_intermediate_plots
+#  Pipeline per sample:
+#    Load & subset. Optionally keep only “tumor-defining” scars (≥90% in one sample).
+#    Initial clustering. Build Jaccard overlap of cell barcode sets per seq-ID.
+#    Build an adjacency matrix with threshold 0.3 and take connected components (igraph) -> preliminary cluster labels.
+#    Merge seq-ID-clusters based on barcode overlap:
+#      - Keep only clusters that overlap ≥ merger_frac (0.9) with at least one other; drop the rest from the merge graph.
+#      - Ambiguity pruning: if a cluster overlaps > overlap_threshold (0.8) with ≥2 other clusters that do not overlap
+#                           each other (< secondary_overlap_threshold (0.6)), mark it ambiguous and remove it.
+#      - If allow_large_parent_IDs=TRUE, a size-ratio check (child_to_parent_fraction_cutoff) can rescue parent/child seq-ID
+#        structures.
+#      - Build a graph of remaining pairs (edges where overlap ≥ merger_frac).
+#        Connected components define merged “common_cluster” (mapped to the minimum cluster ID).
+#    Recheck overlaps between common_clusters, using ambiguous_cutoff (=0.3).
+#    Remove clusters or choose the “child” when both directions exceed the cutoff but one is higher.
+#    Remove any cellbarcodes that still appear in multiple common_clusters.
+#    Remaining common_clusters are clones -> name them.
+#    Merge information on cell barcode-clone assignments into original cell-lineage barcode dataframe.
+#    If requested, final plots will be made: Heatmap of all cells×seq-ID with gene and clone annotations.
+#                                            Heatmap of all cells×clone highlighting kept cells.
+
+
+
 
 # Written by Nora Fresmann 2022-2024
 
@@ -23,12 +60,47 @@ suppressPackageStartupMessages(library(reshape2))
 
 
 
-# color palette to use in the function
+# color palettes to use in the function
 tol21rainbow= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788", "#525252", "#969696", "#252525", "#C6DBEF", "#FC9272", "#C7E9C0", "#DBDBDB", "#FDEE02", "#FFAB00", "#4D4DBF", "#BF4DBF", "#999999")
 
 
+colorblindfriend24 = c( '#003D30',
+                        '#005745',
+                        '#00735C',
+                        '#009175',
+                        '#00AF8E',
+                        '#00CBA7',
+                        '#00EBC1',
+                        '#86FFDE',
+                        '#00306F',
+                        '#00489E',
+                        '#005FCC',
+                        '#0079FA',
+                        '#009FFA',
+                        '#00C2F9',
+                        '#00E5F8',
+                        '#7CFFFA',
+                        '#5F0914',
+                        '#86081C',
+                        '#B20725',
+                        '#DE0D2E',
+                        '#FF4235',
+                        '#FF8735',
+                        '#FFB935',
+                        '#FFE239'
+                        )
+
+
+
+# function for grouping cells into clones
 clone_def <- function(dat_wd, dat_name, tums_list, cell_clone_object_file_name, tum_def_only = F, create_intermediate_plots = F, merger_frac = 0.9, overlap_threshold = 0.8, secondary_overlap_threshold = 0.6, ambiguous_cutoff = 0.3, allow_large_parent_IDs = FALSE, child_to_parent_fraction_cutoff = 0.2){
 
+    # create plot output directory if missing
+    if (!dir.exists(paste0(dat_wd,"/pics"))) {
+      dir.create(out_dir, recursive = TRUE)
+    }
+    
+    
     if(allow_large_parent_IDs == F){
         child_to_parent_fraction_cutoff <- 0
     }
@@ -101,8 +173,7 @@ clone_def <- function(dat_wd, dat_name, tums_list, cell_clone_object_file_name, 
 
         }
 
-
-# # GROUP COMB_SEQ_IDS THAT CO-OCCUR
+# GROUP COMB_SEQ_IDS (seq-ID-pairs) THAT CO-OCCUR
 
         # A network-based clustering approach
         # This approach will group comb_seq_id values based on the overlap of their associated Barcode values, even when the number of rows for each comb_seq_id is imbalanced. Nodes within the same cluster belong to the same group, while nodes in different clusters represent distinct groups.
@@ -258,7 +329,6 @@ clone_def <- function(dat_wd, dat_name, tums_list, cell_clone_object_file_name, 
         }
         
         
-
 # MERGE CLUSTERS BASED ON BARCODE OVERLAP
 
         # Create a matrix to store the overlap fractions
@@ -433,7 +503,7 @@ clone_def <- function(dat_wd, dat_name, tums_list, cell_clone_object_file_name, 
         cell_clone_object_ext <- cell_clone_object_ext_full[!duplicated(cell_clone_object_ext_full$comm_clust_BC),]         
                                   
                                   
-# This code will remove common clusters and specific barcodes to make sure that each barcode is assigned to a single clone:
+# Remove common clusters and specific barcodes to make sure that each barcode is assigned to a single clone:
 
         #    We calculate the overlap fractions for all pairs of common_cluster values by iterating through each pair, filtering the data for the two clusters, and calculating the overlap in Barcode values.
 
@@ -519,16 +589,6 @@ clone_def <- function(dat_wd, dat_name, tums_list, cell_clone_object_file_name, 
           }
         }                            
 
-# OLD VERSION COMMENTED OUT!
-#        for (i in 1:length(common_clusters)) {
-#          cluster1 <- common_clusters[i]
-#
-#          # Check if either of the overlap fractions is above 0.25
-#          if (any(overlap_data$common_cluster1 == cluster1 & overlap_data$overlap_fraction1 > 0.25) ||
-#              any(overlap_data$common_cluster2 == cluster1 & overlap_data$overlap_fraction2 > 0.25)) {
-#            clusters_to_remove <- c(clusters_to_remove, cluster1)
-#          }
-#        }
 
         # Remove rows corresponding to the common_clusters
         filtered_cell_clone_object_ext <- cell_clone_object_ext %>%
@@ -585,7 +645,7 @@ clone_def <- function(dat_wd, dat_name, tums_list, cell_clone_object_file_name, 
             
             
             
-   # Merge with original scar table and save this
+   # Merge with original lineage barcode table and save this
         filtered_cell_clone_object_ext_full <- left_join(cell_clone_object, clone_defs[,c('comb_seq_id','common_cluster','fish_clone')], by = 'comb_seq_id')
         
         write.csv(filtered_cell_clone_object_ext_full, paste0(dat_wd,'/original_scar_data_with_clone_defs_final_',dat_name,'_',tum_it,'_',resolution,'Clones_resCutoff_',child_to_parent_fraction_cutoff,'.csv'), quote = F)
@@ -894,5 +954,3 @@ clone_def <- function(dat_wd, dat_name, tums_list, cell_clone_object_file_name, 
 
 
 }
-
-

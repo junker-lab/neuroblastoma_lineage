@@ -1,5 +1,5 @@
 # Description ####
-# Functions for filtering of scars for RFP
+# Functions for filtering of transgenic target lineage barcodes
 
 # Written mainly by Bastiaan Spanjaard (merged and altered by Nora Fresmann)
 
@@ -18,13 +18,8 @@ suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(DescTools))
 suppressPackageStartupMessages(library(pheatmap))
                        
-# Dependencies/parameters ####
-source("/local/users/nfresma/endo_scars/R_scripts/scar_helper_functions.R")
 
-
-
-## Filtering function
-
+## Function for filtering lineage barcode reads on RFP or other transgenic targets
 
 filter_RFP_scars <- function(unfilt_scar_file_1, unfilt_scar_file_2,  all_barcode_UMIs_file, all_cells){
 
@@ -221,7 +216,7 @@ filter_RFP_scars <- function(unfilt_scar_file_1, unfilt_scar_file_2,  all_barcod
 # Function for adding probabilities for scars in the data by comparing to the frequency the scar is found in in bulk sequencing data (from larvae).
 # If probabilities of certain genes are not available, they will automatically be assigned a low probability to avoid being filtered out.
 
-compare_scars <- function(input_dat_name, dat_name,  min.presence, gene_it, scar_probabilities_in){
+compare_scars_transgene <- function(input_dat_name, dat_name,  min.presence, gene_it, scar_probabilities_in){
 
             
         Z1.scars <- input_dat_name
