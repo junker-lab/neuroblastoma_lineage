@@ -1,11 +1,7 @@
 name: env2
 channels:
-  - trent
-  - dranew
-  - defaults
   - conda-forge
   - bioconda
-  - nodefaults
 dependencies:
   - _libgcc_mutex=0.1=main
   - _r-mutex=1.0.0=anacondar_1
