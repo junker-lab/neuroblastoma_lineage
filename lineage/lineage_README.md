@@ -69,7 +69,8 @@ Further filtering is carried out separately for endogenous target genes and the 
 - Cells and barcodes are then grouped on a per-gene basis:
     - Sequences are shortened to 30 bp sequence IDs around the Cas9-target site.
     - Cells with two distinct sequence IDs on a gene are selected and consistently obsereved sequence ID pairs are determined. Cells with both alleles corresponding of a given pair as well as cells that can unambiguously be assigned to a pair based on only one allele are grouped.
-    - These steps already group cells based on lineage relationship and can be used to assess lineage relationsships.
+    - These steps already group cells based on lineage relationship and can be used to assess lineage relationsships.  
+**An example of clustered cells (rows) and sequence IDs for gene rpl39. Each cell carries two alleles (red heatmap color).**  
 ![An example of clustered cells (rows) and sequence IDs for gene rpl39. Each cell carries two alleles (red heatmap color).](./linBC_processing_and_clone_calling/output/pics/scarsintwocells_afterFinalFilt_seqcombs_over_8_multi_seq_09_s1_tum_1_rpl39.png)
 
 
