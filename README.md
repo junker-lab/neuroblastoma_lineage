@@ -1,11 +1,17 @@
 # Code for zebrafish neuroblastoma transcriptomic and lineage tracing analysis
+
+**WORK IN PROGRESS**  
+  
+Scripts and notebooks used for analyses in manuscript 'Lineage origin and microenvironment shape neuroblastoma transcriptional state and plasticity' ((https://doi.org/10.1101/2025.10.13.682025)[https://www.biorxiv.org/content/10.1101/2025.10.13.682025v1]).
+  
 ## Contents:
-- scRNA-seq analysis:
+### Zebrafish neuroblastoma single cell transcriptomic analysis:
+- Analysis of neuroblastoma gene modules is described in more detail [here](./gene_modules/modules_README.md) and covers the following steps:
 	- Gene module detection
 	- Gene module scoring in scRNA-seq data
-	- Differential module score expression tests between groups
-- CRISPR/Cas9-based high-throughput lineage tracing data analysis:
-	- All steps from sequencing fastq-files to clone calling are described in more detail [here](./lineage/lineage_README.md)
-- openST spatial transcriptomics analysis:
-	- ...
+	- Differential module score expression tests between groups of cells
+### CRISPR/Cas9-based high-throughput lineage tracing data analysis:
+- All steps from sequencing fastq-files to clone calling are described in more detail [here](./lineage/lineage_README.md)
+### openST spatial transcriptomics analysis:
+- to be added...
 
