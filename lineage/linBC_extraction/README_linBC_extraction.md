@@ -1,6 +1,7 @@
 This directory provides the scripts and example input and output data for scar extraction. Note that example input data is a small dummy set, which can be used to test the pipeline. Example output data was generated using a larger input dataset and does not correspond to the output one will obtain, when running the provided scripts on the dummy input data.
 
 # Contents
+- yaml-file with conda environment specifics used for this analysis. Crucial tools needed are bwa and samtools  - env2.yml
 - Commands needed to run lineage barcode extraction from fastq files. Calls on other scripts and files in this directory  - commands_lineage_barcode_extraction.sh 
 - Configuration file for lineage barcode extraction from endogenous target fastq files - config_endo.sh
 - Configuration file for lineage barcode extraction from transgenic target fastq files - config_transgene.sh
