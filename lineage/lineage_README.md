@@ -82,11 +82,14 @@ Further filtering is carried out separately for endogenous target genes and the 
 #### Clone calling based on all target genes
 - The function with detailed information on steps and inputs can be found [here](./linBC_processing_and_clone_calling/clone_def_all_targets.R). A brief overview is given in the following.
 - Information from all target genes is merged. Each endogenous target is represented as pairs of sequence IDs determined above. Each transgene integration is considered as an individual gene. Each contributing sequence ID pair or transgene sequence is hereafter called seq-ID.
-- Initally seq-IDs are clustered based on Jaccard overlap of cell barcode sets.
-![Jaccard index in cell barcode sets for all seq-IDs input into clone calling for one sample.](./linBC_processing_and_clone_calling/output/pics/cloneDefPlots_multi_seq_09_s1_1_combSeqID_overlap_matrix_forGraphBasedClustering.png). 
+- Initally seq-IDs are clustered based on Jaccard overlap of cell barcode sets.  
+**Jaccard index in cell barcode sets for all seq-IDs input into clone calling for one sample.**  
+![Jaccard index in cell barcode sets for all seq-IDs input into clone calling for one sample.](./linBC_processing_and_clone_calling/output/pics/cloneDefPlots_multi_seq_09_s1_1_combSeqID_overlap_matrix_forGraphBasedClustering.png)  
+**An example of clustered cells (rows) and seq-IDs with seq-IDs labelled according to their initial cluster membership.**  
 ![An example of clustered cells (rows) and seq-IDs with seq-IDs labelled according to their initial cluster membership.](./linBC_processing_and_clone_calling/output/pics/cloneDefPlots_multi_seq_09_s1_1_Heatmap_allCells_initialCombSeqIDclustering.png). 
 - Clusters are further merged based on cell barcode overlap.
 - Ambiguous clusters overlapping with multiple others may be removed.
 - If the 'allow_large_parent_IDs' option is set to prioritize cell retention over clone calling 'resolution', larger, but less resolved clonal groups are recovered.
-- Remaining ambiguous clusters and cells are removed and final clusters are used as clone-IDs.
-![Final heatmap of clustered cells (rows) and clone-IDs (columns) with cells labelled according to their assigned cell type.](./linBC_processing_and_clone_calling/output/pics/allTargs_multi_seq_09_s1_CommonClusters_exclusive_heatmap_tum_1_CelltypeAndTum_withCloneIDs.png). 
+- Remaining ambiguous clusters and cells are removed and final clusters are used as clone-IDs.  
+**Final heatmap of clustered cells (rows) and clone-IDs (columns) with cells labelled according to their assigned cell type.**  
+![Final heatmap of clustered cells (rows) and clone-IDs (columns) with cells labelled according to their assigned cell type.](./linBC_processing_and_clone_calling/output/pics/allTargs_multi_seq_09_s1_CommonClusters_exclusive_heatmap_tum_1_CelltypeAndTum_withCloneIDs.png)  
