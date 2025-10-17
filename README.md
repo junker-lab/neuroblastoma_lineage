@@ -2,7 +2,7 @@
 
 **WORK IN PROGRESS**  
   
-Scripts and notebooks used for analyses in manuscript 'Lineage origin and microenvironment shape neuroblastoma transcriptional state and plasticity' [https://doi.org/10.1101/2025.10.13.682025](https://www.biorxiv.org/content/10.1101/2025.10.13.682025v1)).
+Scripts and notebooks used for analyses in manuscript 'Lineage origin and microenvironment shape neuroblastoma transcriptional state and plasticity' ([https://doi.org/10.1101/2025.10.13.682025](https://www.biorxiv.org/content/10.1101/2025.10.13.682025v1)).
   
 ## Contents:
 ### Zebrafish neuroblastoma single cell transcriptomic analysis:
