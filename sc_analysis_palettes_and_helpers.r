@@ -277,7 +277,7 @@ calculate_correlation <- function(i, all_scores = all_scores
 
 # Functions for scoring modules with different approaches.
 
-# 1. FOR scRNA-seq: Taken from Barkley et al. Nat Gen 2022 with minimal alterations
+# 1. For scRNA-seq: Taken from Barkley et al. Nat Gen 2022 as presented here https://github.com/yanailab/PanCancer with minimal alterations
 
 # 1. Making random gene sets for score comparison to gene set of interest:
 
