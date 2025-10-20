@@ -3,15 +3,20 @@
 ## Gene module detection
 The initial detection of gene modules is done using [cNMF](https://github.com/dylkot/cNMF) ([https://doi.org/10.7554/eLife.43803](https://elifesciences.org/articles/43803)). The data used as input is a count matrix for all cells of interest written out from Seurat or Scanpy. In this analysis, I also determined highly variable genes passed to cNMF with Seurat. Results from cNMF are then further analyzed in R, e.g. to identify consensus modules from the cNMF-gene modules dreived from many samples.
 ### Steps:
--
--
+- For each dataset of interest, write the count matrix to tsv-file and the variable genes list to txt-file. This is shown for different sets of NB cells (here)[cNMF_data_prep.ipynb].
+- Count matrix and variable genes list serve as input for cNMF. Run module detection for a sensible range of ks (k = number of expected gene modules).
+- Assess cNMF result stability and error across ks using the output plot below and choose the best k based on this.
+![k-selection plot output from cNMF for NB cells from a single tumor sample](./nmf_data/out/MYCN_lat_m17_1_1_nrblstm_seurVarGenes.k_selection.png)
+- Consensus module generation:
 
 ## Gene module expression scoring
+Code for running module expression scoring, plotting scores and calculating fractions of cells expressing a given module is shown in [this notebook](./module_scoring.ipynb). This is shown for caculating the expression of (gene modules identified in zebrafish NB)[final_gene_modules_list.csv] across all zebrafish NB cells. Scoring functions are in (this script)[./../sc_analysis_palettes_and_helpers.r].
+
 ### AUCell scoring
+AUCell scores are calculated with the (AUCell R package)[https://github.com/aertslab/AUCell] to understand the relative expression of gene modules across cells.
 
 ### Binary expression test scoring
-
-
+Gene module expression scores between 0 and 1 are calculated following the appraoch described in and code published with [Barkley et al., Nat Gen 2022](https://doi.org/10.1038/s41588-022-01141-9). The score is determined as the rank of the module score relative to the score for 1000 random gene sets. A score of 0.5 corresponds to the module of interest being expressed more strongly than 50 % of all random gene sets. If a module has an expression score of 0.5 or higher in a cell, it is considered expressed. This way, a module can be assigned a binarized score (expressed or not expressed) across cells, allowing the calculation of the fraction of cells in a sample that expresses the module.
 
 ## Differential module expression analysis
 
