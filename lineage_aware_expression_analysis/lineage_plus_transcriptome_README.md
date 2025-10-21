@@ -1,3 +1,10 @@
 # Analysis of transcriptional profiles across clones and transplantation time points
-...
+Processed single cell transcriptomes are brought together with gene module scores and cell clonal assignments to:  
+**on primary tumor data:**
+- Assess overall inter-clonal expression differences
+- Perform differential module expression analysis between clones
+- Calculate intra-clone module expression variance
+
+**on data from primary tumors and allograft samples:**
+- Perform differential module expression analysis between cells from different sample types (e.g. primary tumor vs. late allograft tumor)
 
