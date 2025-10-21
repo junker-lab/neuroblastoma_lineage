@@ -592,59 +592,36 @@ AddGeneSetScore <- function(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Differential module score calculation (with permutation test for significance)
-# dat is a seurat object
-# location_clones is the metadata column name containing information on the groups used for comparison (e.g. clone)
+# dat needs to be a seurat object
+# group_assign is the metadata column name containing information on the groups used for comparison (e.g. clone)
 
 modScorDiff_Permutation <- function(clone1,
                                clone2,
                                dat,
-                               type, # tirosh, barkley, auc or metafeatures
+                               type, # barkley, auc or count
                                nperm,
                                module_names,
-                               module_metnames
+                               module_metnames,
+                               grouping_var,
+                               size_group_1 = 10,
+                               size_group_2 = 10,
+                               size_groups_summed = 25
                               ) {
     
     results_df_perm <- data.frame()
     results_df <- data.frame()
     results_df_p <- data.frame()
-
+    
+    # Write grouping variable into group_assign column
+    dat@meta.data$group_assign <- dat@meta.data[,grouping_var]
+    
     # Add ID to module number depending on assay used
-   
-    if(type == 'tirosh'){
-        module_names <- paste0('tiro_',module_names)
-        
-    }else if(type == 'barkley'){
+    if(type == 'barkley'){
         module_names <- paste0('bark_',module_names)
         
     }else if(type == 'auc'){
         module_names <- paste0('auc_',module_names)
-        
-    }else if(type == 'metafeatures'){
-        module_names <- paste0('meta_',module_names)
         
     }else if(type == 'count'){
         module_names <- paste0('count_',module_names)
@@ -652,35 +629,29 @@ modScorDiff_Permutation <- function(clone1,
     }
     
     # Filter cells for each clone pair
-    clone1_cells <- which(dat$location_clones == clone1)
-    clone2_cells <- which(dat$location_clones == clone2)
+    clone1_cells <- which(dat$group_assign == clone1)
+    clone2_cells <- which(dat$group_assign == clone2)
     
-    if (length(clone1_cells) <= 10 || length(clone2_cells) <= 10 || length(c(clone1_cells, clone2_cells)) <= 25) {
+    if (length(clone1_cells) <= size_group_1 || length(clone2_cells) <= size_group_2 || length(c(clone1_cells, clone2_cells)) <= size_groups_summed) {
         return(NULL)  # Skip this combination
     }
     
     # Extract cells that belong to the two clones from the dataset
-    clone_cells <- c(names(which(dat$location_clones == clone1)), names(which(dat$location_clones == clone2)))
+    clone_cells <- c(names(which(dat$group_assign == clone1)), names(which(dat$group_assign == clone2)))
     sub <- subset(dat, cells = clone_cells)
     
 
     
     # Calculate differential expression between clone1 and clone2
     
-    if(type == 'tirosh'){
-        de_result <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_tiro', min.pct=0.05, min.diff.pct=0.05)
-        
-    }else if(type == 'barkley'){
-        de_result <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_bark', min.pct=0.05, min.diff.pct=0.05)
+    if(type == 'barkley'){
+        de_result <- FindMarkers(sub, group.by = "group_assign", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_bark', min.pct=0.05, min.diff.pct=0.05)
         
     }else if(type == 'auc'){
-        de_result <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_auc', min.pct=0.05, min.diff.pct=0.05)
-        
-    }else if(type == 'metafeatures'){
-        de_result <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_meta', min.pct=0.05, min.diff.pct=0.05)
+        de_result <- FindMarkers(sub, group.by = "group_assign", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_auc', min.pct=0.05, min.diff.pct=0.05)
         
     }else if(type == 'count'){
-        de_result <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_count', min.pct=0.05, min.diff.pct=0.05)
+        de_result <- FindMarkers(sub, group.by = "group_assign", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_count', min.pct=0.05, min.diff.pct=0.05)
         
     }
         
@@ -696,26 +667,20 @@ modScorDiff_Permutation <- function(clone1,
     for (t in 1:nperm) {
         # Randomly shuffle clonal assignments
         set.seed(t)
-        sub@meta.data$location_clones <- sample(sub@meta.data$location_clones)
-        sub@meta.data$location_clones <- as.factor(as.character(sub@meta.data$location_clones))
-        Idents(sub) <- 'location_clones'
+        sub@meta.data$group_assign <- sample(sub@meta.data$group_assign)
+        sub@meta.data$group_assign <- as.factor(as.character(sub@meta.data$group_assign))
+        Idents(sub) <- 'group_assign'
         
         # Calculate differential expression between clone1 and clone2
                 
-            if(type == 'tirosh'){
-                de_result_perm <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_tiro', min.pct=0.05, min.diff.pct=0.05)
-
-            }else if(type == 'barkley'){
-                de_result_perm <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_bark', min.pct=0.05, min.diff.pct=0.05)
+            if(type == 'barkley'){
+                de_result_perm <- FindMarkers(sub, group.by = "group_assign", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_bark', min.pct=0.05, min.diff.pct=0.05)
 
             }else if(type == 'auc'){
-                de_result_perm <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_auc', min.pct=0.05, min.diff.pct=0.05)
-
-            }else if(type == 'metafeatures'){
-                de_result_perm <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_meta', min.pct=0.05, min.diff.pct=0.05)
+                de_result_perm <- FindMarkers(sub, group.by = "group_assign", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_auc', min.pct=0.05, min.diff.pct=0.05)
 
             }else if(type == 'count'){
-                de_result_perm <- FindMarkers(sub, group.by = "location_clones", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_count', min.pct=0.05, min.diff.pct=0.05)
+                de_result_perm <- FindMarkers(sub, group.by = "group_assign", ident.1 = clone1, ident.2 = clone2, test.use = "wilcox", reduction = 'scores_count', min.pct=0.05, min.diff.pct=0.05)
 
             }
         
@@ -750,10 +715,143 @@ modScorDiff_Permutation <- function(clone1,
 }
 
 
-FaultTolerant_modScorDiff <- function(clone1, clone2, dat, type, nperm, module_names, module_metnames) {
+# Error-tolerant version. Will write NULL result for iterations that produce an error, but continue with the following iterations.
+modScorDiff_faultTol <- function(clone1,
+                                 clone2,
+                                 dat,
+                                 type,
+                                 nperm,
+                                 module_names,
+                                 module_metnames,
+                                 grouping_var,
+                                 size_group_1 = 10,
+                                 size_group_2 = 10,
+                                 size_groups_summed = 25
+                                ){
     
-    tryCatch(modScorDiff_Permutation(clone1, clone2, dat, type, nperm, module_names, module_metnames), error = function(e) NULL)
+    tryCatch(modScorDiff_Permutation(clone1, clone2,
+                                     dat, type, nperm,
+                                     module_names, module_metnames,
+                                     grouping_var,
+                                     size_group_1, size_group_2, size_groups_summed), error = function(e) NULL)
              
  }
 
 
+
+             
+             
+             
+             
+# Function for getting module expression stats from Seurat object
+             
+getExpressionStats <- function(clone1,
+                               clone2,
+                               dat,
+                               type, # barkley, auc or metafeatures
+                               module_names,
+                               module_metnames,
+                               grouping_var,
+                               size_group_1 = 10,
+                               size_group_2 = 10,
+                               size_groups_summed = 25
+                              ){
+    
+    stats_df <- data.frame()
+    
+    # Write grouping variable into group_assign column
+    dat@meta.data$group_assign <- dat@meta.data[,grouping_var]
+    
+    # Add ID to module number depending on assay used
+    if(type == 'barkley'){
+        module_names <- paste0('bark_',module_names)
+        module_metnames <- paste0('barkley_',module_metnames)
+
+    }else if(type == 'auc'){
+        module_names <- paste0('auc_',module_names)
+        module_metnames <- paste0('auc_',module_metnames)
+        
+    }
+    
+    # Filter cells for each clone pair
+    clone1_cells <- which(dat$group_assign == clone1)
+    clone2_cells <- which(dat$group_assign == clone2)
+    
+    if (length(clone1_cells) <= size_group_1 || length(clone2_cells) <= size_group_2 || length(c(clone1_cells, clone2_cells)) <= size_groups_summed) {
+        return(NULL)  # Skip this combination
+    }
+    
+    # Extract cells that belong to the two clones from the dataset
+    clone_cells <- c(names(which(dat$group_assign == clone1)), names(which(dat$group_assign == clone2)))
+    sub <- subset(dat, cells = clone_cells)
+    
+    
+    # Get mean and variance of module expression as well as fraction of cells with module expression for each module
+    for(i in 1:length(module_names)){
+    
+        module_name <- module_metnames[i]
+        mod <- module_names[i]
+
+        if(type %in% c('barkley')){
+        
+            pct_expr1 <- as.data.frame(table(sub@meta.data[sub@meta.data$group_assign == clone1, colnames(sub@meta.data) == module_name] > 0.5))
+            if(TRUE %in% pct_expr1$Var1){
+                pct_expr1$Freq <- pct_expr1$Freq/sum(pct_expr1$Freq)
+                pct_expr1 <- pct_expr1$Freq[pct_expr1$Var1 == TRUE]
+            }else{
+                pct_expr1 <- 0
+            }
+
+            pct_expr2 <- as.data.frame(table(sub@meta.data[sub@meta.data$group_assign == clone2, colnames(sub@meta.data) == module_name] > 0.5))
+            if(TRUE %in% pct_expr2$Var1){
+                pct_expr2$Freq <- pct_expr2$Freq/sum(pct_expr2$Freq)
+                pct_expr2 <- pct_expr2$Freq[pct_expr2$Var1 == TRUE]
+            }else{
+                pct_expr2 <- 0
+            }        
+        
+        
+        }else if(type == 'auc'){ # NEEDS TO BE ADJUSTED!
+        
+            pct_expr1 <- as.data.frame(table(sub@meta.data[sub@meta.data$group_assign == clone1, colnames(sub@meta.data) == module_name] > 0))
+            if(TRUE %in% pct_expr1$Var1){
+                pct_expr1$Freq <- pct_expr1$Freq/sum(pct_expr1$Freq)
+                pct_expr1 <- pct_expr1$Freq[pct_expr1$Var1 == TRUE]
+            }else{
+                pct_expr1 <- 0
+            }
+
+            pct_expr2 <- as.data.frame(table(sub@meta.data[sub@meta.data$group_assign == clone2, colnames(sub@meta.data) == module_name] > 0))
+            if(TRUE %in% pct_expr2$Var1){
+                pct_expr2$Freq <- pct_expr2$Freq/sum(pct_expr2$Freq)
+                pct_expr2 <- pct_expr2$Freq[pct_expr2$Var1 == TRUE]
+            }else{
+                pct_expr2 <- 0
+            }        
+        
+        
+        }
+            
+            
+        mean1 <- mean(sub@meta.data[sub@meta.data$group_assign == clone1,colnames(sub@meta.data) == module_name])
+        var1 <- var(sub@meta.data[sub@meta.data$group_assign == clone1,colnames(sub@meta.data) == module_name])
+
+        mean2 <- mean(sub@meta.data[sub@meta.data$group_assign == clone2,colnames(sub@meta.data) == module_name])
+        var2 <- var(sub@meta.data[sub@meta.data$group_assign == clone2,colnames(sub@meta.data) == module_name])
+
+        stats_df <- rbind(stats_df, data.frame(Clone1 = clone1,
+                                               Clone2 = clone2,
+                                               pct_expr_clone1 = pct_expr1,
+                                               pct_expr_clone2 = pct_expr2,
+                                               mean_clone1 = mean1,
+                                               mean_clone2 = mean2,
+                                               var_clone1 = var1,
+                                               var_clone2 = var2,
+                                               Module = mod)
+                         )
+    }
+    
+ 
+    
+    return(tryCatch(return(stats_df), error=function(e) NULL))
+}
