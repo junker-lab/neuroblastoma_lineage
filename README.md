@@ -18,7 +18,7 @@ Scripts and notebooks used for analyses in manuscript 'Lineage origin and microe
 - All steps from sequencing fastq-files to clone calling are described in more detail [here](./lineage/lineage_README.md)
 
 ### Gene expression analysis in clones and groups of cells across transplantation time points:
-- Analysis of gene module expression differences between groups of cells and variance within groups of cells is described in more detail [here](.lineage_aware_expression_analysis/lineage_plus_transcriptome_README.md):
+- Analysis of gene module expression differences between groups of cells and variance within groups of cells is described in more detail [here](./lineage_aware_expression_analysis/lineage_plus_transcriptome_README.md):  
         - Differential module score expression tests between groups of cells
         - Calculation of gene module expression variance within a group of cells
 
