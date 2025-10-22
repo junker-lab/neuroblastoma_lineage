@@ -17,12 +17,14 @@
     - An jupyter notebook demonstrating a full workflow from filtering to clone calling
     - Small example output files.
     - A [README](./linBC_processing_and_clone_calling/README_processing_cloneCalling.md) with more detailed information on contents.
+- [dir clone_recovery_in_allografts](./clone_recovery_in_allografts/):
+    - A [jupyter notebook](./clone_recovery_in_allografts/linBC_processing_allografts.ipynb) demonstrating lineage barcode filtering and processing in allograft cell data, followed by assignment of allograft cells to primary tumor clones.
 - [dir LINNAEUS_resources](./LINNAEUS_resources/):
     - Reproduced from [LINNAUES](https://github.com/Bastiaanspanjaard/LINNAEUS).
     - Contains key resources and background functions for lineage barcode sequence extraction and filtering for transgenic target.
 
 ## Overview of workflow
-The following gives an introduction to the workflow of extracting lineage barcodes, filtering them and finally calling clones. For further information on production and sequencing of lineage barcode libraries, please refer to the methods section of the publication.   
+The following gives an introduction to the workflow of extracting lineage barcodes, filtering them, calling clones and finally assigning allograft cells to primary tumor clones. For further information on production and sequencing of lineage barcode libraries, please refer to the methods section of the publication.   
 
 ### 1. Lineage barcode extraction
 This step takes as input sequencing read fastq-files derived from targeted libraries produced for a specific lineage tracing target gene. These libraries are derived from 10x-cDNA and are expected to be sequenced with 28 cycles on R1 and at least 90, but preferably more cycles (e.g. 150 for transgene cassette) on R2.   
@@ -75,12 +77,12 @@ Further filtering is carried out separately for endogenous target genes and the 
 
 
 #### dsRedRecCas (transgene) target filtering and pre-processing
-- Filtering relies on functions previously established for the RFP-transgene in LINNAEUS. FOr each combination of cell barcode and UMI, only the lineage barcode with the highest number of reads is kept. Sequences derived from PCR or sequencing errors are removed by comparing sequences within a cell to each other and removing those with a relatively low read number and low Hamming distance to others.
+- Filtering relies on functions previously established for the RFP-transgene in LINNAEUS. For each combination of cell barcode and UMI, only the lineage barcode with the highest number of reads is kept. Sequences derived from PCR or sequencing errors are removed by comparing sequences within a cell to each other and removing those with a relatively low read number and low Hamming distance to others.
 - A manual read-filter is applied based on UMI-read distributions to exclude sequences with few reads.
 - Sequences are then split by transgene integration ID, as these represent separately edited entities within a cell.
 - Based on the assumption that a single transgene integration within one cell can only carry one allele, only a sequence that makes up at least 60 % of the transcripts (UMIs) in a cell is kept.
 
-#### Clone calling based on all target genes
+### 3. Clone calling based on all target genes
 - The function with detailed information on steps and inputs can be found [here](./linBC_processing_and_clone_calling/clone_def_all_targets.R). A brief overview is given in the following.
 - Information from all target genes is merged. Each endogenous target is represented as pairs of sequence IDs determined above. Each transgene integration is considered as an individual gene. Each contributing sequence ID pair or transgene sequence is hereafter called seq-ID.
 - Initally seq-IDs are clustered based on Jaccard overlap of cell barcode sets.  
@@ -94,3 +96,11 @@ Further filtering is carried out separately for endogenous target genes and the 
 - Remaining ambiguous clusters and cells are removed and final clusters are used as clone-IDs.  
 **Final heatmap of clustered cells (rows) and clone-IDs (columns) with cells labelled according to their assigned cell type.**  
 ![Final heatmap of clustered cells (rows) and clone-IDs (columns) with cells labelled according to their assigned cell type.](./linBC_processing_and_clone_calling/output/pics/allTargs_multi_seq_09_s1_CommonClusters_exclusive_heatmap_tum_1_CelltypeAndTum_withCloneIDs.png)  
+
+### 4. Assignment of lineage barcoded graf cells to primary tumor cells of origin
+- Lineage barcode data for graft cells is extracted and filtered in the same way as described above.
+- Endogenous target sequences are shortened to 30 bp sequence IDs around the Cas9-target site. Then, cells with two distinct sequence IDs on a gene are selected and sequence ID pairs are determined. Sequence ID pairs are not filtered furhter, but later used for cross-referencing with the primary tumor clone-assigned sequence ID pairs.
+- The transgenic lineage barcode data is processed in the same way as described above before clone calling.
+- For each cell, any combination of seq-IDs observed in it is generated. E.g. if a cell contains seq-IDs A, B and C, none of them may be definitive of a primary tumour clone. However, the combination of A and B or A, B and C might be.
+- The function used to call clones in primary tumor cells ('clone_def') prepares the combination of seq-IDs in primary tumors with assignment which combinations are found in which clone. This file just needs to be loaded to cross-reference with the graft cells.
+- Graft cells are then assigned to a primary tumor clone, if they carry a seq-ID combination definitive of that clone.
