@@ -585,10 +585,43 @@ AddGeneSetScore <- function(
 
 
 
+# Pairwise Wilcoxon rank sum test for comparing module scores between groups and adding this to plot
+pairwise_wilcox_for_plot <- function(set_name, group_name, dataframe){
 
+    # Perform pairwise Wilcoxon tests
+        pairwise_results <- pairwise.wilcox.test(
+          dataframe[, set_name],  # Scores
+          dataframe[, group_name],        # Grouping variable
+          p.adjust.method = "bonferroni"  # Adjust method
+        )
 
+        # Load required packages
+        library(dplyr)
+        library(tidyr)
 
+        # Convert pairwise results to a long format dataframe
+        significant_pairs <- as.data.frame(pairwise_results$p.value) %>%
+          tibble::rownames_to_column("group1") %>%
+          pivot_longer(cols = -group1, names_to = "group2", values_to = "p_value") %>%
+          filter(!is.na(p_value))  # Filter significant results
+        #  filter(!is.na(p_value) & p_value < 0.05)  # Filter significant results
 
+        # Define y positions for annotation lines
+        y_positions <- seq(max(dataframe[, set_name]) + 0.1, 
+                           by = 0.1, length.out = nrow(significant_pairs))
+
+        significant_pairs <- significant_pairs %>%
+          mutate(y_position = y_positions,
+                 label = case_when(
+                   p_value < 0.0001 ~ "***",
+                   p_value < 0.001  ~ "**",
+                   p_value < 0.01  ~ "*",
+                   p_value >= 0.01 ~ "ns"
+                 ))
+        
+        return(significant_pairs)
+
+}
 
 
 
