@@ -16,7 +16,7 @@ The initial detection of gene modules is done using [cNMF](https://github.com/dy
 	- Remove duplicated genes based on a hierarchical module-rank approach.
 
 ## Gene module expression scoring
-Code for running module expression scoring, plotting scores and calculating fractions of cells expressing a given module is shown in [this notebook](./module_scoring.ipynb). This is shown for caculating the expression of [gene modules identified in zebrafish NB](final_gene_modules_list.csv) across all zebrafish NB cells. Scoring functions are in [this script](/../sc_analysis_palettes_and_helpers.r).
+Code for running module expression scoring, plotting scores and calculating fractions of cells expressing a given module is shown in [this notebook](./module_scoring.ipynb). This is shown for caculating the expression of [gene modules identified in zebrafish NB](final_gene_modules_list.csv) across all zebrafish NB cells. Scoring functions are in [this script](../sc_analysis_palettes_and_helpers.r).
 
 ### AUCell scoring
 AUCell scores are calculated with the [AUCell R package](https://github.com/aertslab/AUCell) to understand the relative expression of gene modules across cells.
