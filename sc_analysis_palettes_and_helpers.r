@@ -585,6 +585,8 @@ AddGeneSetScore <- function(
 
 
 
+
+
 # Pairwise Wilcoxon rank sum test for comparing module scores between groups and adding this to plot
 pairwise_wilcox_for_plot <- function(set_name, group_name, dataframe){
 
@@ -592,7 +594,9 @@ pairwise_wilcox_for_plot <- function(set_name, group_name, dataframe){
         pairwise_results <- pairwise.wilcox.test(
           dataframe[, set_name],  # Scores
           dataframe[, group_name],        # Grouping variable
-          p.adjust.method = "bonferroni"  # Adjust method
+          p.adjust.method = "bonferroni",  # Adjust method
+          verbose = FALSE,
+          exact = FALSE
         )
 
         # Load required packages
@@ -622,6 +626,8 @@ pairwise_wilcox_for_plot <- function(set_name, group_name, dataframe){
         return(significant_pairs)
 
 }
+
+
 
 
 
