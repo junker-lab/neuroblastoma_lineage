@@ -99,7 +99,9 @@ Further filtering is carried out separately for endogenous target genes and the 
 
 ### 4. Assignment of lineage barcoded graf cells to primary tumor cells of origin
 - Lineage barcode data for graft cells is extracted and filtered in the same way as described above.
-- Endogenous target sequences are shortened to 30 bp sequence IDs around the Cas9-target site. Then, cells with two distinct sequence IDs on a gene are selected and sequence ID pairs are determined. Sequence ID pairs are not filtered furhter, but later used for cross-referencing with the primary tumor clone-assigned sequence ID pairs.
+- Endogenous target sequences are shortened to 30 bp sequence IDs around the Cas9-target site. Then, cells with two distinct sequence IDs on a gene are selected and sequence ID pairs are determined. Sequence ID pairs are not filtered furhter, but later used for cross-referencing with the primary tumor clone-assigned sequence ID pairs.  
+**An example of clustered cells (rows) and sequence IDs for gene rpl39. Each cell carries two alleles (red heatmap color).**  
+![An example of clustered cells (rows) and sequence IDs for gene rpl39. Each cell carries two alleles (red heatmap color).](.pics/scarsintwocells_heatmap_multi_seq_19_tum_all_rpl39.png)  
 - The transgenic lineage barcode data is processed in the same way as described above before clone calling.
 - For each cell, any combination of seq-IDs observed in it is generated. E.g. if a cell contains seq-IDs A, B and C, none of them may be definitive of a primary tumour clone. However, the combination of A and B or A, B and C might be.
 - The function used to call clones in primary tumor cells ('clone_def') prepares the combination of seq-IDs in primary tumors with assignment which combinations are found in which clone. This file just needs to be loaded to cross-reference with the graft cells.
