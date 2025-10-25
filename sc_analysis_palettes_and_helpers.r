@@ -782,8 +782,8 @@ modScorDiff_faultTol <- function(clone1,
              
              
              
-# Function for getting module expression stats from Seurat object
-             
+# Function for getting module expression stats for clone pairs from Seurat object
+                          
 getExpressionStats <- function(clone1,
                                clone2,
                                dat,
@@ -891,6 +891,104 @@ getExpressionStats <- function(clone1,
     }
     
  
+    
+    return(tryCatch(return(stats_df), error=function(e) NULL))
+}
+
+                 
+                    
+                    
+
+# Function for getting module expression stats for single clones from Seurat object
+             
+getExpressionStatsSingleClone <- function(clone,
+                               dat,
+                               type, # tirosh, barkley, auc or metafeatures
+                               module_names,
+                               module_metnames,
+                               grouping_var,
+                               size_group_1 = 10
+                              ){
+    
+    stats_df <- data.frame()
+    
+    # Write grouping variable into group_assign column
+    dat@meta.data$group_assign <- dat@meta.data[,grouping_var]
+    
+    # Add ID to module number depending on assay used
+    if(type == 'barkley'){
+        module_names <- paste0('bark_',module_names)
+        module_metnames <- paste0('barkley_',module_metnames)
+
+    } else if(type == 'auc'){
+        module_names <- paste0('auc_',module_names)
+        module_metnames <- paste0('auc_',module_metnames)
+        
+    }
+    
+    # Filter cells for the selected clone
+    clone_cells <- which(dat$group_assign == clone)
+
+    if (length(clone_cells) <= size_group_1) {
+        return(NULL)  # Skip this combination if insufficient cells
+    }
+    
+    # Extract cells that belong to the clone 
+    sub <- subset(dat, cells = names(clone_cells))
+    
+    # Get mean and variance of module expression as well as fraction of cells with module expression for each module
+    for(i in 1:length(module_names)){
+    
+        module_name <- module_metnames[i]
+        mod <- module_names[i]
+
+        if(type %in% c('barkley')){
+        
+            pct_expr_clone <- as.data.frame(table(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name] > 0.5))
+            if(TRUE %in% pct_expr_clone$Var1){
+                pct_expr_clone$Freq <- pct_expr_clone$Freq/sum(pct_expr_clone$Freq)
+                pct_expr_clone <- pct_expr_clone$Freq[pct_expr_clone$Var1 == TRUE]
+            } else {
+                pct_expr_clone <- 0
+            }
+
+        } else if(type == 'auc'){ 
+        
+            pct_expr_clone <- as.data.frame(table(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name] > 0))
+            if(TRUE %in% pct_expr_clone$Var1){
+                pct_expr_clone$Freq <- pct_expr_clone$Freq/sum(pct_expr_clone$Freq)
+                pct_expr_clone <- pct_expr_clone$Freq[pct_expr_clone$Var1 == TRUE]
+            } else {
+                pct_expr_clone <- 0
+            }
+
+        
+        }
+            
+        mean_clone <- mean(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name])
+        var_clone <- var(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name])
+        median_clone <- median(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name])
+        
+        cv_clone <- sd(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name]) / mean_clone
+
+        skewness_clone <- skewness(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name])
+
+        kurtosis_clone <- kurtosis(sub@meta.data[sub@meta.data$group_assign == clone, colnames(sub@meta.data) == module_name])
+        
+        no_cells_clone <- nrow(sub@meta.data[sub@meta.data$group_assign == clone,])
+        
+        stats_df <- rbind(stats_df, data.frame(Clone = clone,
+                                               pct_expr_clone = pct_expr_clone,
+                                               mean_clone = mean_clone,
+                                               var_clone = var_clone,
+                                               median_clone = median_clone,
+                                               cv_clone = cv_clone,
+                                               skewness_clone = skewness_clone,
+                                               kurtosis_clone = kurtosis_clone,
+                                               no_cells_clone = no_cells_clone,
+                                               Module = mod)
+                         )
+    }
     
     return(tryCatch(return(stats_df), error=function(e) NULL))
 }
