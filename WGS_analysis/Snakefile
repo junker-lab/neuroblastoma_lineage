@@ -1,0 +1,122 @@
+import pandas as pd
+import glob
+import os
+
+# ── Global variables ── fill these in before running ──────────────────────────
+DATA_LOC    = # directory containing per-sample FASTQ subdirectories
+REF         = # path to GRCz11 primary assembly FASTA (indexed)
+BAM_LOC     = # destination for BAM files
+OUT_LOC     = # destination for CNVkit and BAF output
+CONDA_ENV_BIN = # Location of conda environment binaries
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Load sample table
+samples_df = pd.read_csv("samples.tsv", sep="\t", dtype=str)
+samples_df = samples_df.set_index("pair_id")
+
+PAIRS      = samples_df.index.tolist()
+TUMOR_MAP  = samples_df["tumor_sample"].to_dict()
+NORMAL_MAP = samples_df["normal_sample"].to_dict()
+
+def get_fastq(sample, read):
+    pattern = os.path.join(DATA_LOC, f"{sample}_*_R{read}_*.fastq.gz")
+    files = glob.glob(pattern)
+    if not files:
+        raise ValueError(f"No R{read} FASTQ found for sample {sample} under {DATA_LOC}")
+    if len(files) > 1:
+        raise ValueError(f"Multiple R{read} FASTQs found for sample {sample} — expected one: {files}")
+    return files[0]
+
+
+# ── Target rule ───────────────────────────────────────────────────────────────
+rule all:
+    input:
+        expand(
+            os.path.join(OUT_LOC, "cnvkit", "{pair_id}", "{pair_id}.call.cns"),
+            pair_id=PAIRS
+        ),
+
+
+# ── Alignment ─────────────────────────────────────────────────────────────────
+rule bwa_mem:
+    """Align, sort, and output BAM."""
+    input:
+        R1  = lambda wc: get_fastq(wc.sample, "1"),
+        R2  = lambda wc: get_fastq(wc.sample, "2"),
+        ref = REF,
+    output:
+        bam = os.path.join(BAM_LOC, "bam", "{sample}.bam"),
+    threads: 16
+    resources:
+        mem  = "32G",
+        time = "14-00:00:00",
+    shell:
+        """
+	export PATH="{CONDA_ENV_BIN}:$PATH"
+        bwa mem -t {threads} \
+            -R '@RG\\tID:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:ILLUMINA' \
+            {input.ref} {input.R1} {input.R2} \
+          | samtools sort -@ {threads} -T $TMPDIR/{wildcards.sample} -O BAM \
+          -o {output.bam}
+        samtools index {output.bam}
+        """
+
+
+# ── Mark duplicates ───────────────────────────────────────────────────────────
+rule mark_duplicates:
+    input:
+        bam = os.path.join(BAM_LOC, "bam", "{sample}.bam"),
+    output:
+        bam     = os.path.join(BAM_LOC, "bam_markdup", "{sample}.markdup.bam"),
+        metrics = os.path.join(BAM_LOC, "bam_markdup", "{sample}.markdup.metrics"),
+    resources:
+        mem  = "16G",
+        time = "14-00:00:00",
+    shell:
+        """
+        export PATH="{CONDA_ENV_BIN}:$PATH"
+	gatk MarkDuplicates \
+            -I {input.bam} \
+            -O {output.bam} \
+            -M {output.metrics} \
+            --TMP_DIR $TMPDIR
+        samtools index {output.bam}
+        """
+
+
+# ── CNVkit ────────────────────────────────────────────────────────────────────
+rule cnvkit_batch:
+    """
+    Run CNVkit in WGS mode for one tumor/normal pair.
+    """
+    input:
+        tumor  = lambda wc: os.path.join(
+            BAM_LOC, "bam_markdup", f"{TUMOR_MAP[wc.pair_id]}.markdup.bam"),
+        normal = lambda wc: os.path.join(
+            BAM_LOC, "bam_markdup", f"{NORMAL_MAP[wc.pair_id]}.markdup.bam"),
+        ref    = REF,
+    output:
+        cns = os.path.join(OUT_LOC, "cnvkit", "{pair_id}", "{pair_id}.call.cns"),
+        cnr = os.path.join(OUT_LOC, "cnvkit", "{pair_id}", "{pair_id}.cnr"),
+    params:
+        outdir = os.path.join(OUT_LOC, "cnvkit", "{pair_id}"),
+    threads: 8
+    resources:
+        mem  = "32G",
+        time = "14-00:00:00",
+    shell:
+        """
+        export PATH="{CONDA_ENV_BIN}:$PATH"
+	cnvkit.py batch {input.tumor} \
+            --normal {input.normal} \
+            --method wgs \
+            --fasta {input.ref} \
+            --output-dir {params.outdir} \
+            --diagram --scatter \
+            -p {threads}
+
+        # CNVkit names output after the BAM basename; rename to pair_id for clarity
+	tumor_base=$(basename {input.tumor} .bam)
+	mv {params.outdir}/${{tumor_base}}.cns {params.outdir}/{wildcards.pair_id}.call.cns || true
+	mv {params.outdir}/${{tumor_base}}.cnr {params.outdir}/{wildcards.pair_id}.cnr      || true
+        """
