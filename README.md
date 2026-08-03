@@ -2,7 +2,7 @@
 
 **WORK IN PROGRESS**  
   
-Scripts and notebooks used for analyses in manuscript 'Lineage origin and microenvironment shape neuroblastoma transcriptional state and plasticity' ([https://doi.org/10.1101/2025.10.13.682025](https://www.biorxiv.org/content/10.1101/2025.10.13.682025v1)).  
+Scripts and notebooks used for analyses in manuscript 'Lineage origin and developmental context shape tumor states in MYCN-dependent zebrafish neuroblastoma' ([https://doi.org/10.1101/2025.10.13.682025](https://www.biorxiv.org/content/10.1101/2025.10.13.682025v1)).  
   
 **Sequencing data** used for this project is deposited in GEO under GSE301974 (scRNA-seq data), GSE301860 (lineage tracing data from scRNA-seq), GSE301869 (spatial transcriptomics data).  
 
