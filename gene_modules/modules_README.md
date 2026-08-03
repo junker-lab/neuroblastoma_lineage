@@ -8,12 +8,18 @@ The initial detection of gene modules is done using [cNMF](https://github.com/dy
 - Assess cNMF result stability and error across ks using the output plot below and choose the best k based on this. In this example, 9 or 10 would be good choices for k: They represent a local maximum in stability and are in a reasonable range of distinct gene expression programs to be expected in tumor cells from a single tumor.
 ![k-selection plot output from cNMF for NB cells from a single tumor sample](./nmf_data/out/MYCN_lat_m17_1_1_nrblstm_seurVarGenes.k_selection.png)
 - **Consensus module generation** - is exemplified [here](./consensus_module_generation.ipynb) for modules derived from individual primary tumors:  
-	- For each sample, load the gene spectra scores (z-scores of contribution of a gene to module)  resulting from cNMF for the chosen k.
+	- For each sample, load the gene spectra scores (z-scores of contribution of a gene to module) resulting from cNMF for the chosen k.
 	- Perform pairwise correlations between all modules, considering all positive gene scores in the given modules.
 	- Select modules that have a Pearson`s R >= 0.1 with at least two other modules. These enter consensus module generation.
 	- Cluster filtered modules with hdbscan and generate consensus module by selecting genes found in over 25 % of modules in a cluster.
 	- Name modules and further merge modules that share the same functional annotation.
 	- Remove duplicated genes based on a hierarchical module-rank approach.
+- **Final gene selection for modules derived from a single dataset** - is exemplified [here](./entireDataset_module_selection.ipynb) for modules derived from cNMF run on all NB cells from all datasets together:
+	- Load gene spectra scores (z-scores of contribution of a gene to module) resulting from cNMF for the chosen k.
+	- For each module, rank genes according to their contribution weight.
+	- For each gene, rank modules according to the weight of the gene in the different modules.
+	- For each final module k, add genes, starting with the most highly ranked gene. If a gene is ranked more highly in another module, flag it.
+	- Stop adding genes to final module as soon as more than four genes have been flagged.
 
 ## Gene module expression scoring
 Code for running module expression scoring, plotting scores and calculating fractions of cells expressing a given module is shown in [this notebook](./module_scoring.ipynb). This is shown for caculating the expression of [gene modules identified in zebrafish NB](final_gene_modules_list.csv) across all zebrafish NB cells. Scoring functions are in [this script](../sc_analysis_palettes_and_helpers.r).
