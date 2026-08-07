@@ -29,3 +29,6 @@ Scripts and notebooks used for analyses in manuscript 'Lineage origin and develo
 - Determine number of differentially expressed clones using WGS_clone_sizes.R.
 - Create a list of sample names (example samples.csv is provided) and a conda environment using cnv_analysis.yml. Use the run_WGS.sh wrapper and the Snakefile to align the fastq-files and do copy number calling. Relevant output files are *.cnr and *.call.cns.
 - Analyze copy number calling output using WGS_analysis.R  
+
+### Identification of developmental sympathoadrenal cells in zebrafish scRNA-seq atlases:
+- to be added next..
