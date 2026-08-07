@@ -31,4 +31,4 @@ Scripts and notebooks used for analyses in manuscript 'Lineage origin and develo
 - Analyze copy number calling output using WGS_analysis.R  
 
 ### Identification of developmental sympathoadrenal cells in zebrafish scRNA-seq atlases:
-- to be added next..
+- Process of cell identification and extraction is shown [here](./zebrafish_sympathoadrenal_dev/daniocell_sympAdr_dev.ipynb).
