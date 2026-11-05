@@ -2,6 +2,7 @@
 lineage_aware_expression_analysis/data/
 transcriptome_analysis/data/
 transcriptome_analysis/data_allTPs/
+MULTIseq_demux/data/
 *~
 \#*\#
 .\#*
