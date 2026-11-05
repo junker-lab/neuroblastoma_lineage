@@ -1,12 +1,13 @@
 # Zebrafish neuroblastoma single cell transcriptomic and lineage tracing analysis
-
-**WORK IN PROGRESS**  
-  
+ 
 Scripts and notebooks used for analyses in manuscript 'Lineage origin and developmental context shape tumor states in MYCN-dependent zebrafish neuroblastoma' ([https://doi.org/10.1101/2025.10.13.682025](https://doi.org/10.1101/2025.10.13.682025)).  
 
 **Sequencing data** used for this project is deposited in GEO under GSE301974 (scRNA-seq data), GSE301860 (lineage tracing data from scRNA-seq), GSE301869 (spatial transcriptomics data).  
 
 ## Contents:
+
+### Sample demultiplexing
+- Assignment of individual cell transcriptomes from MULTI-seq runs to their sample of origin is described in more detail [here](./MULTIseq_demux/deMULTIplexing_README.md).
 
 ### Zebrafish neuroblastoma single cell transcriptomic analysis:
 - Filtering, processing and cell type assignment of zebrafish NB primary tumor dataset and of full dataset containing data from primary tumors and allograft samples. Detailed information is provided [here](./transcriptome_analysis/GE_analysis_README.md).
