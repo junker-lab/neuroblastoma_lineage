@@ -2,6 +2,10 @@
 lineage_aware_expression_analysis/data/
 transcriptome_analysis/data/
 transcriptome_analysis/data_allTPs/
+gene_modules/source_data_figs/
+transcriptome_analysis/source_data_figs/
+lineage/barcode_creation_dynamics/source_data_figs/
+lineage/barcode_creation_dynamics/data/
 MULTIseq_demux/data/
 *~
 \#*\#
