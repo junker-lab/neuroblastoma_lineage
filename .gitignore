@@ -7,6 +7,7 @@ transcriptome_analysis/source_data_figs/
 lineage/barcode_creation_dynamics/source_data_figs/
 lineage/barcode_creation_dynamics/data/
 MULTIseq_demux/data/
+other_internal/
 *~
 \#*\#
 .\#*
