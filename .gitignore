@@ -9,6 +9,9 @@ lineage/barcode_creation_dynamics/data/
 MULTIseq_demux/data/
 other_internal/
 lineage/linBC_processing_and_clone_calling/output/source_data_fig_4c_filtered_scar_data_with_clone_defs_final_multi_bAllos_4_tum_1_highResolutionClones_resCutoff_0.csv
+lineage/linBC_processing_and_clone_calling/output/source_data_fig_4c_unique_cells.csv
+lineage/linBC_processing_and_clone_calling/output/source_data_3b_tums_rpl39.csv
+lineage/linBC_processing_and_clone_calling/output/source_data_3b_tums_dsRedRecCas.csv
 *~
 \#*\#
 .\#*
