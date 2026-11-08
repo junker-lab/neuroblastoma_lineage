@@ -40,7 +40,6 @@
 
 # Written by Nora Fresmann 2022-2024
 
-suppressPackageStartupMessages(library(dichromat))
 suppressPackageStartupMessages(library(ggplot2))
 require(igraph)
 suppressPackageStartupMessages(library(reshape2))
@@ -48,7 +47,6 @@ require(stringdist)
 library(dplyr)
 require(plyr)
 require(data.table)
-suppressPackageStartupMessages(library(openxlsx))
 suppressPackageStartupMessages(library(ggrepel))
 suppressPackageStartupMessages(library(plyr))
 suppressPackageStartupMessages(library(dplyr))
