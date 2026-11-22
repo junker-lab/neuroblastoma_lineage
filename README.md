@@ -32,4 +32,4 @@ Scripts and notebooks used for analyses in manuscript 'Lineage origin and develo
 - Process of cell identification and extraction is shown [here](./sympathoadrenal_dev/daniocell_sympAdr_dev.ipynb).
 
 ### Gene module expression analysis in human neuroblastoma
-- Module expression scoring in human NB bulk RNA-seq data as well as result visualisation for bulk RNA-seq and scRNA-seq-based analysis is shown [here](./human_nb_analysis)
+- Module expression scoring in human NB bulk RNA-seq data as well as result visualisation for bulk RNA-seq and scRNA-seq-based analysis is shown [here](./human_nb_analysis).
