@@ -33,3 +33,5 @@ Scripts and notebooks used for analyses in manuscript 'Lineage origin and develo
 
 ### Gene module expression analysis in human neuroblastoma
 - Module expression scoring in human NB bulk RNA-seq data as well as result visualisation for bulk RNA-seq and scRNA-seq-based analysis is shown [here](./human_nb_analysis).
+  
+License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
